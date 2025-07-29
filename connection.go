@@ -636,27 +636,12 @@ func (conn *Connection) closeConnection(neterr error, forever bool) (err error) 
 	return
 }
 
-func (conn *Connection) getDialTimeout() time.Duration {
-	dialTimeout := conn.opts.Reconnect / 2
-	if dialTimeout == 0 {
-		dialTimeout = 500 * time.Millisecond
-	} else if dialTimeout > 5*time.Second {
-		dialTimeout = 5 * time.Second
-	}
-	return dialTimeout
-}
-
 func (conn *Connection) runReconnects(ctx context.Context) error {
-	dialTimeout := conn.getDialTimeout()
 	var reconnects uint
 	var err error
 
-	t := time.NewTicker(conn.opts.Reconnect)
-	defer t.Stop()
 	for conn.opts.MaxReconnects == 0 || reconnects <= conn.opts.MaxReconnects {
-		localCtx, cancel := context.WithTimeout(ctx, dialTimeout)
-		err = conn.connect(localCtx)
-		cancel()
+		err = conn.connect(ctx)
 
 		if err != nil {
 			// The error will most likely be the one that Dialer
@@ -678,19 +663,17 @@ func (conn *Connection) runReconnects(ctx context.Context) error {
 			return nil
 		}
 
+
 		conn.opts.Logger.Report(LogReconnectFailed, conn, reconnects, err)
 		conn.notify(ReconnectFailed)
-		reconnects++
-		conn.mutex.Unlock()
 
-		select {
-		case <-ctx.Done():
-			// Since the context is cancelled, we don't need to do anything.
-			// Conn.connect() will return the correct error.
-		case <-t.C:
+		if conn.opts.Reconnect == 0 {
+			break
 		}
 
-		conn.mutex.Lock()
+		reconnects++
+
+		time.Sleep(conn.opts.Reconnect)
 	}
 
 	conn.opts.Logger.Report(LogLastReconnectFailed, conn, err)
