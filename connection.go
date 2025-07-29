@@ -175,6 +175,8 @@ func (d defaultLogger) Report(event ConnLogKind, conn *Connection, v ...interfac
 // More on graceful shutdown:
 // https://www.tarantool.io/en/doc/latest/dev_guide/internals/iproto/graceful_shutdown/
 type Connection struct {
+	ctx context.Context
+
 	addr   net.Addr
 	dialer Dialer
 	c      Conn
@@ -336,6 +338,7 @@ type Opts struct {
 // Connect creates and configures a new Connection.
 func Connect(ctx context.Context, dialer Dialer, opts Opts) (conn *Connection, err error) {
 	conn = &Connection{
+		ctx: 			  ctx,
 		dialer:           dialer,
 		requestId:        0,
 		contextRequestId: 1,
@@ -685,7 +688,7 @@ func (conn *Connection) reconnectImpl(neterr error, c Conn) {
 	if conn.opts.Reconnect > 0 {
 		if c == conn.c {
 			conn.closeConnection(neterr, false)
-			if err := conn.runReconnects(context.Background()); err != nil {
+			if err := conn.runReconnects(conn.ctx); err != nil {
 				conn.closeConnection(err, true)
 			}
 		}
@@ -1500,7 +1503,7 @@ func (conn *Connection) newWatcherImpl(key string, callback WatchCallback) (Watc
 					// result. But we need to make sure that the re-watch
 					// request will not be finished by a small per-request
 					// timeout.
-					req := newWatchRequest(key).Context(context.Background())
+					req := newWatchRequest(key).Context(conn.ctx)
 					conn.Do(req).Get()
 				}
 			}
@@ -1523,7 +1526,7 @@ func (conn *Connection) newWatcherImpl(key string, callback WatchCallback) (Watc
 						// We need to make sure that the unwatch request will
 						// not be finished by a small per-request timeout to
 						// avoid lost of the request.
-						req := newUnwatchRequest(key).Context(context.Background())
+						req := newUnwatchRequest(key).Context(conn.ctx)
 						conn.Do(req).Get()
 					}
 					conn.watchMap.Delete(key)
