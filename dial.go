@@ -56,6 +56,10 @@ type Conn interface {
 
 // DialOpts is a way to configure a Dial method to create a new Conn.
 type DialOpts struct {
+	// net.Dialer Timeout is the maximum amount of time
+	// a dial will wait for a connect to complete
+	DialTimeout time.Duration
+
 	// IoTimeout is a timeout per a network read/write.
 	IoTimeout time.Duration
 }
@@ -152,6 +156,11 @@ func (d netDialer) Dial(ctx context.Context, opts DialOpts) (Conn, error) {
 
 	network, address := parseAddress(d.address)
 	dialer := net.Dialer{}
+
+	if opts.DialTimeout != 0 {
+		dialer.Timeout = opts.DialTimeout
+	}
+
 	conn.net, err = dialer.DialContext(ctx, network, address)
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial: %w", err)

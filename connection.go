@@ -280,6 +280,11 @@ const (
 
 // Opts is a way to configure Connection
 type Opts struct {
+	// net.Dialer Timeout is the maximum amount of time
+	// a dial will wait for a connect to complete.
+	// if Timeout is zero, there is no timeout will be configured for net.Dialer.
+	DialTimeout time.Duration
+
 	// Timeout for response to a particular request. The timeout is reset when
 	// push messages are received. If Timeout is zero, any request can be
 	// blocked infinitely.
@@ -458,6 +463,7 @@ func (conn *Connection) dial(ctx context.Context) error {
 
 	var c Conn
 	c, err := conn.dialer.Dial(ctx, DialOpts{
+		DialTimeout: opts.DialTimeout,
 		IoTimeout: opts.Timeout,
 	})
 	if err != nil {
