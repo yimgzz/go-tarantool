@@ -383,13 +383,7 @@ func Connect(ctx context.Context, dialer Dialer, opts Opts) (conn *Connection, e
 	conn.cond = sync.NewCond(&conn.mutex)
 
 	if conn.opts.Reconnect > 0 {
-		// We don't need these mutex.Lock()/mutex.Unlock() here, but
-		// runReconnects() expects mutex.Lock() to be set, so it's
-		// easier to add them instead of reworking runReconnects().
-		conn.mutex.Lock()
-		err = conn.runReconnects(ctx)
-		conn.mutex.Unlock()
-		if err != nil {
+		if err = conn.runReconnects(ctx); err != nil {
 			return nil, err
 		}
 	} else {
